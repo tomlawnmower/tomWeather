@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hourly Weather</title>
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--text:#1c232b;--muted:#68737f;--line:#e2e6ea;--night:rgba(0,0,0,.05);--temp:#c93434;--rain:#3f98d4;--fill:rgba(63,152,212,.42);--hi:#c93434;--lo:#3f98d4;--chip:#e9edf1;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12161b;--card:#1a2027;--text:#e8ecf0;--muted:#98a3ae;--line:#2b333c;--night:rgba(255,255,255,.045);--temp:#ff6b6b;--rain:#58aee6;--fill:rgba(88,174,230,.4);--hi:#ff7a7a;--lo:#6bb8ea;--chip:#262d36;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#12161b;--card:#1a2027;--text:#e8ecf0;--muted:#98a3ae;--line:#2b333c;--night:rgba(255,255,255,.045);--temp:#ff6b6b;--rain:#58aee6;--fill:rgba(88,174,230,.4);--hi:#ff7a7a;--lo:#6bb8ea;--chip:#262d36;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1100px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:22px;margin:0 0 14px;letter-spacing:-.01em}
+form{display:flex;gap:8px}
+input{flex:1;min-width:0;padding:10px 12px;font:inherit;color:var(--text);background:var(--card);border:1px solid var(--line);border-radius:8px}
+input:focus-visible,button:focus-visible{outline:2px solid var(--rain);outline-offset:2px}
+button{font:inherit;cursor:pointer;border:0;border-radius:8px}
+.go{padding:10px 18px;background:var(--rain);color:#fff;font-weight:600}
+.recents{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:12px 0 16px;min-height:30px}
+.recents small{color:var(--muted);margin-right:2px}
+.chip{display:inline-flex;align-items:center;background:var(--chip);border-radius:16px;color:var(--text)}
+.chip.on{outline:2px solid var(--rain)}
+.chip button{background:none;color:inherit;padding:5px 4px 5px 12px;border-radius:16px 0 0 16px}
+.chip .x{padding:5px 10px 5px 4px;color:var(--muted);border-radius:0 16px 16px 0}
+.clear{background:none;color:var(--muted);padding:5px 8px;text-decoration:underline}
+#status{color:var(--muted);min-height:22px;margin-bottom:6px}
+#status.err{color:var(--temp)}
+.loc{font-size:18px;font-weight:600;margin:0 0 8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.scroll{overflow-x:auto;cursor:grab;user-select:none;-webkit-user-select:none}
+.scroll.drag,.scroll.drag *{cursor:grabbing!important}
+.inner{position:relative}
+.days{display:flex}
+.day{flex:none;text-align:center;border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:10px 4px 12px}
+.day b{display:block;font-size:14px}
+.day .t{margin:8px 0 2px;font-size:15px}
+.day .t i{font-style:normal;color:var(--hi)}.day .t u{text-decoration:none;color:var(--lo)}
+.day .e{font-size:44px;line-height:1.2}
+.day .c{font-size:15px}
+.day .p{margin-top:8px;color:var(--muted)}
+.charts{position:relative;cursor:crosshair}
+.row{position:relative}
+.row svg{display:block}
+.axis{position:sticky;left:0;width:0;height:0;z-index:3;pointer-events:none}
+.axis span{position:absolute;left:0;transform:translateY(-50%);font-size:11px;color:var(--muted);background:var(--card);padding:0 4px;border-radius:3px;opacity:.92}
+.legend{display:flex;align-items:center;gap:8px;padding:6px 14px;color:var(--muted);font-size:13px;position:sticky;left:0;width:max-content}
+.legend s{display:inline-block;width:20px;height:6px;border-radius:3px;background:var(--temp)}
+.legend s.r{background:var(--rain)}
+#hl{position:absolute;top:0;bottom:0;width:0;border-left:2px solid #e02828;pointer-events:none;display:none;z-index:4}
+#now{position:absolute;top:0;bottom:0;width:0;border-left:1px solid var(--text);pointer-events:none;opacity:.7}
+#tip{position:absolute;top:8px;z-index:5;pointer-events:none;display:none;background:var(--card);color:var(--text);border:1px solid var(--line);border-left:3px solid #e02828;border-radius:6px;padding:6px 10px;font-size:13px;white-space:nowrap;box-shadow:0 2px 10px rgba(0,0,0,.18)}
+#tip b{display:block;margin-bottom:2px}
+:root{--snow:#8e44ad;--snowfill:rgba(142,68,173,.38)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--snow:#c58de6;--snowfill:rgba(197,141,230,.38)}}
+:root[data-theme="dark"]{--snow:#c58de6;--snowfill:rgba(197,141,230,.38)}
+.opts{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--card)}
+.seg button{background:none;color:var(--muted);padding:6px 14px;border-radius:0}
+.seg button.on{background:var(--rain);color:#fff;font-weight:600}
+.legend s.sn{background:var(--snow);margin-left:14px}
+.hint{color:var(--muted);font-size:13px;margin-top:8px}
+.empty{padding:48px 20px;text-align:center;color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+  <h1>Hourly weather</h1>
+  <form id="f">
+    <input id="q" placeholder="City or ZIP code, e.g. 78701 or Denver, CO" aria-label="City or ZIP code" autocomplete="off">
+    <button class="go" type="submit">Show forecast</button>
+  </form>
+  <div class="opts"><div class="seg" id="unit"><button type="button" data-v="F">°F</button><button type="button" data-v="C">°C</button></div><div class="seg" id="range"><button type="button" data-v="7">7 days</button><button type="button" data-v="16">16 days</button></div><div class="seg"><button type="button" id="refresh">Refresh</button></div></div>
+  <div class="recents" id="recents"></div>
+  <div id="status" role="status"></div>
+  <div id="out"><div class="card empty">Enter a city or ZIP code to see the 7-day hourly forecast.</div></div>
+  <p class="hint">Hover or tap the graphs to read exact values; drag or swipe to scroll sideways. Data: Open-Meteo.</p>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+const DAYW=170,TH=200,PH=170,KEY='hourlywx.v1',HR=3600000;
+let state={recents:[],cur:null,unit:'F',days:7},W=0,DATA=null;
+try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&Array.isArray(s.recents))state=Object.assign(state,s)}catch(e){}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}};
+const CKEY='hourlywx.cache.v1',TTL=30*60000;
+function readCache(){try{return JSON.parse(localStorage.getItem(CKEY))||{}}catch(e){return{}}}
+function writeCache(c){try{const now=Date.now(),ks=Object.keys(c).filter(k=>now-c[k].ts<864e5).sort((a,b)=>c[b].ts-c[a].ts).slice(0,12),o={};ks.forEach(k=>o[k]=c[k]);localStorage.setItem(CKEY,JSON.stringify(o))}catch(e){}}
+const ST="AL:Alabama;AK:Alaska;AZ:Arizona;AR:Arkansas;CA:California;CO:Colorado;CT:Connecticut;DE:Delaware;FL:Florida;GA:Georgia;HI:Hawaii;ID:Idaho;IL:Illinois;IN:Indiana;IA:Iowa;KS:Kansas;KY:Kentucky;LA:Louisiana;ME:Maine;MD:Maryland;MA:Massachusetts;MI:Michigan;MN:Minnesota;MS:Mississippi;MO:Missouri;MT:Montana;NE:Nebraska;NV:Nevada;NH:New Hampshire;NJ:New Jersey;NM:New Mexico;NY:New York;NC:North Carolina;ND:North Dakota;OH:Ohio;OK:Oklahoma;OR:Oregon;PA:Pennsylvania;RI:Rhode Island;SC:South Carolina;SD:South Dakota;TN:Tennessee;TX:Texas;UT:Utah;VT:Vermont;VA:Virginia;WA:Washington;WV:West Virginia;WI:Wisconsin;WY:Wyoming;DC:District of Columbia";
+const ABBR=Object.fromEntries(ST.split(';').map(p=>p.split(':')));
+function wc(c){
+  if(c===0)return['☀️','Sunny'];if(c===1)return['🌤️','Mostly Sunny'];if(c===2)return['⛅','Partly Cloudy'];if(c===3)return['☁️','Cloudy'];
+  if(c===45||c===48)return['🌫️','Fog'];if(c>=51&&c<=57)return['🌦️','Drizzle'];if(c>=61&&c<=67)return['🌧️','Rain'];
+  if(c>=71&&c<=77||c===85||c===86)return['❄️','Snow'];if(c>=80&&c<=82)return['🌧️','Showers'];if(c>=95)return['⛈️','Storms'];return['⛅','Mixed'];
+}
+async function geocode(q){
+  q=q.trim();
+  if(/^\d{5}$/.test(q)){
+    const r=await fetch('https://api.zippopotam.us/us/'+q);
+    if(!r.ok)throw new Error('That ZIP code wasn’t found. Check it and try again.');
+    const p=(await r.json()).places[0];
+    return{label:p['place name']+', '+p['state abbreviation']+' '+q,lat:+p.latitude,lon:+p.longitude};
+  }
+  const parts=q.split(',').map(s=>s.trim());
+  const r=await fetch('https://geocoding-api.open-meteo.com/v1/search?count=10&language=en&name='+encodeURIComponent(parts[0]));
+  const list=(await r.json()).results||[];
+  if(!list.length)throw new Error('No place matched “'+q+'”. Try a nearby city or a ZIP code.');
+  let pick=list[0];
+  if(parts[1]){
+    const f=parts[1].toLowerCase(),full=(ABBR[parts[1].toUpperCase()]||'').toLowerCase();
+    const m=list.find(x=>[x.admin1,x.country,x.country_code].some(v=>v&&(v.toLowerCase().startsWith(f)||(full&&v.toLowerCase()===full))));
+    if(m)pick=m;
+  }
+  return{label:pick.name+', '+(pick.admin1||pick.country),lat:pick.latitude,lon:pick.longitude};
+}
+async function getWx(l,force){
+  const ck=l.lat.toFixed(2)+','+l.lon.toFixed(2)+','+state.days,cache=readCache(),hit=cache[ck];
+  if(!force&&hit&&Date.now()-hit.ts<TTL)return hit.data;
+  const u='https://api.open-meteo.com/v1/forecast?latitude='+l.lat+'&longitude='+l.lon+
+  '&hourly=temperature_2m,precipitation_probability,snowfall&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,sunrise,sunset'+
+  '&temperature_unit=fahrenheit&precipitation_unit=inch&timezone=auto&forecast_days='+state.days;
+  let r;try{r=await fetch(u)}catch(e){if(hit)return hit.data;throw new Error('You appear to be offline. Check your connection and try again.')}
+  if(!r.ok){if(hit)return hit.data;throw new Error('The weather service didn’t respond. Try again in a moment.')}
+  const data=await r.json();data._ts=Date.now();cache[ck]={ts:data._ts,data};writeCache(cache);return data;
+}
+function setStatus(m,e){const s=$('#status');s.textContent=m||'';s.className=e?'err':''}
+function remember(l){
+  const k=x=>x.lat.toFixed(2)+','+x.lon.toFixed(2);
+  state.recents=[l,...state.recents.filter(x=>k(x)!==k(l))].slice(0,8);
+  state.cur=l;save();drawRecents();
+}
+function drawRecents(){
+  const el=$('#recents');el.innerHTML='';
+  if(!state.recents.length)return;
+  const s=document.createElement('small');s.textContent='Recent:';el.append(s);
+  state.recents.forEach((l,i)=>{
+    const c=document.createElement('span');
+    c.className='chip'+(state.cur&&state.cur.lat===l.lat&&state.cur.lon===l.lon?' on':'');
+    const b=document.createElement('button');b.type='button';b.textContent=l.label;b.onclick=()=>show(l);
+    const x=document.createElement('button');x.type='button';x.className='x';x.textContent='×';x.setAttribute('aria-label','Remove '+l.label);
+    x.onclick=()=>{state.recents.splice(i,1);save();drawRecents()};
+    c.append(b,x);el.append(c);
+  });
+  const cl=document.createElement('button');cl.type='button';cl.className='clear';cl.textContent='Clear';
+  cl.onclick=()=>{state.recents=[];save();drawRecents()};el.append(cl);
+}
+async function show(l,force){
+  setStatus('Loading forecast…');
+  try{
+    const d=await getWx(l,force);DATA=d;remember(l);render(l,d);
+    const m=Math.round((Date.now()-d._ts)/60000);
+    setStatus(m<1?'Updated just now':m<30?'Updated '+m+' min ago':'Showing a saved copy from '+m+' min ago; couldn’t refresh.');
+  }catch(e){setStatus(e.message||'Something went wrong. Try again.',true)}
+}
+function niceRange(min,max){
+  const span=max-min+4,step=span>40?10:span>16?5:2;
+  return{lo:Math.floor((min-2)/step)*step,hi:Math.ceil((max+2)/step)*step,step};
+}
+function render(l,d){
+  const h=d.hourly,n=h.time.length,days=d.daily.time.length;
+  W=days*DAYW;
+  const t=h.time.map(s=>Date.parse(s+'Z')),t0=t[0],tot=days*24*HR;
+  const X=ms=>(ms-t0)/tot*W;
+  const C=state.unit==='C',cv=v=>C?(v-32)*5/9:v,U=C?'°C':'°F';
+  const temps=h.temperature_2m.map(cv),pr=h.precipitation_probability;
+  const snow=pr.map((v,i)=>v==null?null:((h.snowfall&&h.snowfall[i])>0?v:0));
+  const hasSnow=snow.some(v=>v>0);
+  const {lo,hi,step}=niceRange(Math.min(...temps),Math.max(...temps));
+  const yT=v=>TH-(v-lo)/(hi-lo)*TH,yP=v=>PH-v/100*PH;
+  // night bands
+  let night='';
+  d.daily.time.forEach((day,i)=>{
+    const s=t0+i*24*HR,e=s+24*HR,sr=Date.parse(d.daily.sunrise[i]+'Z'),ss=Date.parse(d.daily.sunset[i]+'Z');
+    night+='<rect x="'+X(s)+'" width="'+(X(sr)-X(s))+'" y="0" height="H" fill="var(--night)"/><rect x="'+X(ss)+'" width="'+(X(e)-X(ss))+'" y="0" height="H" fill="var(--night)"/>';
+  });
+  let seps='';for(let i=1;i<days;i++)seps+='<line x1="'+i*DAYW+'" x2="'+i*DAYW+'" y1="0" y2="H" stroke="var(--line)"/>';
+  const tick=[];for(let v=lo;v<=hi;v+=step)tick.push(v);
+  const pt=[0,25,50,75,100];
+  const grid=(arr,f)=>arr.map(v=>'<line x1="0" x2="'+W+'" y1="'+f(v)+'" y2="'+f(v)+'" stroke="var(--line)"/>').join('');
+  const segs=a=>{const o=[];let c=null;a.forEach((v,i)=>{if(v==null)c=null;else{if(!c){c=[];o.push(c)}c.push(i)}});return o};
+  const line=(a,f)=>segs(a).map(s=>s.map((i,k)=>(k?'L':'M')+X(t[i]).toFixed(1)+' '+f(a[i]).toFixed(1)).join('')).join('');
+  const area=a=>segs(a).map(s=>s.map((i,k)=>(k?'L':'M')+X(t[i]).toFixed(1)+' '+yP(a[i]).toFixed(1)).join('')+'L'+X(t[s[s.length-1]]).toFixed(1)+' '+PH+'L'+X(t[s[0]]).toFixed(1)+' '+PH+'Z').join('');
+  const lineD=line(temps,yT);
+  const lastP=pr.map(v=>v!=null).lastIndexOf(true);
+  const note=lastP<n-1?' (chance data available through '+new Date(t[lastP]).toLocaleDateString('en-US',{month:'numeric',day:'numeric',timeZone:'UTC'})+')':'';
+  const sub=(s,H)=>s.replace(/height="H"/g,'height="'+H+'"').replace(/y2="H"/g,'y2="'+H+'"');
+  const svgT=sub('<svg width="'+W+'" height="H" viewBox="0 0 '+W+' H">'+night+grid(tick,yT)+seps+'<path d="'+lineD+'" fill="none" stroke="var(--temp)" stroke-width="2.2" stroke-linejoin="round"/></svg>',TH).replace('viewBox="0 0 '+W+' H"','viewBox="0 0 '+W+' '+TH+'"');
+  const svgP=sub('<svg width="'+W+'" height="H" viewBox="0 0 '+W+' '+PH+'">'+night+grid(pt,yP)+seps+'<path d="'+area(pr)+'" fill="var(--fill)"/><path d="'+line(pr,yP)+'" fill="none" stroke="var(--rain)" stroke-width="2"/>'+(hasSnow?'<path d="'+area(snow)+'" fill="var(--snowfill)"/><path d="'+line(snow,yP)+'" fill="none" stroke="var(--snow)" stroke-width="2"/>':'')+'</svg>',PH);
+  const axis=(arr,f,suf)=>'<div class="axis">'+arr.map(v=>'<span style="top:'+f(v)+'px">'+v+suf+'</span>').join('')+'</div>';
+  const dayEls=d.daily.time.map((day,i)=>{
+    const dt=new Date(day+'T00:00:00Z').toLocaleDateString('en-US',{weekday:'short',month:'numeric',day:'numeric',timeZone:'UTC'}).replace(',','');
+    const [em,lab]=wc(d.daily.weather_code[i]);
+    return '<div class="day" style="width:'+DAYW+'px"><b>'+dt+'</b><div class="t"><i>'+Math.round(cv(d.daily.temperature_2m_max[i]))+'°</i> | <u>'+Math.round(cv(d.daily.temperature_2m_min[i]))+U+'</u></div><div class="e" aria-hidden="true">'+em+'</div><div class="c">'+lab+'</div><div class="p"></div></div>';
+  }).join('');
+  $('#out').innerHTML='<p class="loc"></p><div class="card"><div class="scroll"><div class="inner" style="width:'+W+'px">'+
+    '<div class="days">'+dayEls+'</div>'+
+    '<div class="charts" id="charts"><div class="row">'+axis(tick,yT,'')+svgT+'</div>'+
+    '<div class="legend"><s></s>Temperature ('+U+')</div>'+
+    '<div class="row">'+axis(pt,yP,'')+svgP+'</div>'+
+    '<div class="legend"><s class="r"></s>Chance of precipitation (%)<s class="sn"></s>Chance of snow (%, estimated)'+note+'</div>'+
+    '<div id="now"></div><div id="hl"></div><div id="tip"></div></div></div></div></div>';
+  $('.loc').textContent=l.label;
+  // fix precip text (zero → "0 in")
+  document.querySelectorAll('.day .p').forEach((el,i)=>{const v=d.daily.precipitation_sum[i]||0;el.textContent=(v===0?'0':C?(v*25.4).toFixed(1):v.toFixed(2))+(C?' mm':' in')});
+  const nowMs=Date.now()+(d.utc_offset_seconds||0)*1000;
+  if(nowMs>=t0&&nowMs<=t0+tot)$('#now').style.left=X(nowMs)+'px';else $('#now').remove();
+  const ch=$('#charts'),hl=$('#hl'),tip=$('#tip');
+  const move=e=>{
+    const r=ch.getBoundingClientRect(),x=Math.max(0,Math.min(W,e.clientX-r.left));
+    const i=Math.max(0,Math.min(n-1,Math.round(x/W*days*24))),px=X(t[i]);
+    hl.style.display=tip.style.display='block';hl.style.left=px+'px';
+    const dt=new Date(t[i]).toLocaleString('en-US',{weekday:'short',month:'numeric',day:'numeric',hour:'numeric',timeZone:'UTC'}).replace(',','');
+    tip.innerHTML='<b>'+dt+'</b>🌡️ '+Math.round(temps[i]*10)/10+U+'<br>💧 '+(pr[i]==null?'chance not forecast this far out':pr[i]+'% chance of rain')+(snow[i]>0?'<br>❄️ '+snow[i]+'% chance of snow':'');
+    const w=tip.offsetWidth,sx=ch.parentElement.parentElement.scrollLeft,vis=ch.parentElement.parentElement.clientWidth;
+    tip.style.left=(px+w+16>sx+vis?px-w-10:px+10)+'px';
+  };
+  const sc=ch.parentElement.parentElement;let drag=null;
+  const hide=()=>{hl.style.display=tip.style.display='none'};
+  ch.onpointermove=move;
+  ch.onpointerleave=e=>{if(e.pointerType==='mouse'&&!drag)hide()};
+  sc.onpointerdown=e=>{
+    if(e.pointerType!=='mouse'){if(ch.contains(e.target))move(e);return}
+    if(e.button!==0)return;
+    drag={x:e.clientX,s:sc.scrollLeft};sc.classList.add('drag');sc.setPointerCapture(e.pointerId);
+  };
+  sc.onpointermove=e=>{if(!drag)return;sc.scrollLeft=drag.s-(e.clientX-drag.x);move(e)};
+  const end=()=>{if(!drag)return;drag=null;sc.classList.remove('drag');if(!ch.matches(':hover'))hide()};
+  sc.onpointerup=end;sc.onpointercancel=end;
+}
+$('#f').onsubmit=async e=>{
+  e.preventDefault();const q=$('#q').value;if(!q.trim())return;
+  setStatus('Finding location…');
+  try{const l=await geocode(q);$('#q').value='';await show(l)}
+  catch(err){setStatus(err.message||'Couldn’t look up that location.',true)}
+};
+drawRecents();
+function syncSeg(){document.querySelectorAll('#unit button').forEach(b=>b.classList.toggle('on',b.dataset.v===state.unit));document.querySelectorAll('#range button').forEach(b=>b.classList.toggle('on',b.dataset.v===String(state.days)))}
+$('#unit').onclick=e=>{const v=e.target.dataset.v;if(!v)return;state.unit=v;save();syncSeg();if(DATA&&state.cur)render(state.cur,DATA)};
+$('#range').onclick=e=>{const v=e.target.dataset.v;if(!v)return;state.days=+v;save();syncSeg();if(state.cur)show(state.cur)};
+syncSeg();
+$('#refresh').onclick=()=>{if(state.cur)show(state.cur,true)};
+document.addEventListener('pointerdown',e=>{const c=$('#charts');if(c&&!c.contains(e.target)){$('#hl').style.display=$('#tip').style.display='none'}});
+if(state.cur)show(state.cur);
+</script>
+</body>
+</html>
