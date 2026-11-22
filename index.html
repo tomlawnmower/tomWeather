@@ -48,10 +48,14 @@ button{font:inherit;cursor:pointer;border:0;border-radius:8px}
 .legend{display:flex;align-items:center;gap:8px;padding:6px 14px;color:var(--muted);font-size:13px;position:sticky;left:0;width:max-content}
 .legend s{display:inline-block;width:20px;height:6px;border-radius:3px;background:var(--temp)}
 .legend s.r{background:var(--rain)}
-#hl{position:absolute;top:0;bottom:0;width:0;border-left:2px solid #e02828;pointer-events:none;display:none;z-index:4}
+#hl{position:absolute;top:0;bottom:0;width:0;border-left:1px solid var(--text);opacity:.75;pointer-events:none;display:none;z-index:4}
 #now{position:absolute;top:0;bottom:0;width:0;border-left:1px solid var(--text);pointer-events:none;opacity:.7}
-#tip{position:absolute;top:8px;z-index:5;pointer-events:none;display:none;background:var(--card);color:var(--text);border:1px solid var(--line);border-left:3px solid #e02828;border-radius:6px;padding:6px 10px;font-size:16px;white-space:nowrap;box-shadow:0 2px 10px rgba(0,0,0,.18)}
-#tip b{display:block;margin-bottom:2px}
+#tip-time{position:absolute;top:5px;z-index:5;pointer-events:none;display:none;text-align:center;line-height:1.2;transform:translateX(-50%);white-space:nowrap;user-select:none;background:var(--card);padding:1px 4px;border-radius:3px;opacity:.95;font-size:13px;font-weight:700;color:var(--text)}
+#tip-temp{position:absolute;z-index:5;pointer-events:none;display:none;background:var(--temp);color:#fff;font-size:12px;font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap;user-select:none;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+#tip-precip{position:absolute;z-index:5;pointer-events:none;display:none;background:var(--rain);color:#000;font-size:12px;font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap;user-select:none;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+#tip-precip.snow{background:var(--snow);color:#fff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) #tip-precip.snow{color:#000}}
+:root[data-theme="dark"] #tip-precip.snow{color:#000}
 :root{--snow:#8e44ad;--snowfill:rgba(142,68,173,.38)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--snow:#c58de6;--snowfill:rgba(197,141,230,.38)}}
 :root[data-theme="dark"]{--snow:#c58de6;--snowfill:rgba(197,141,230,.38)}
@@ -198,24 +202,46 @@ function render(l,d){
     '<div class="legend"><s></s>Temperature ('+U+')</div>'+
     '<div class="row">'+axis(pt,yP,'')+svgP+'</div>'+
     '<div class="legend"><s class="r"></s>Chance of precipitation (%)<s class="sn"></s>Chance of snow (%, estimated)'+note+'</div>'+
-    '<div id="now"></div><div id="hl"></div><div id="tip"></div></div></div></div></div>';
+    '<div id="now"></div><div id="hl"></div><div id="tip-time"></div><div id="tip-temp"></div><div id="tip-precip"></div></div></div></div></div>';
   $('.loc').textContent=l.label;
   // fix precip text (zero → "0 in")
   document.querySelectorAll('.day .p').forEach((el,i)=>{const v=d.daily.precipitation_sum[i]||0;el.textContent=(v===0?'0':C?(v*25.4).toFixed(1):v.toFixed(2))+(C?' mm':' in')});
   const nowMs=Date.now()+(d.utc_offset_seconds||0)*1000;
   if(nowMs>=t0&&nowMs<=t0+tot)$('#now').style.left=X(nowMs)+'px';else $('#now').remove();
-  const ch=$('#charts'),hl=$('#hl'),tip=$('#tip');
+  const ch=$('#charts'),hl=$('#hl'),tipTime=$('#tip-time'),tipTemp=$('#tip-temp'),tipPrecip=$('#tip-precip');
+  const rows=ch.querySelectorAll('.row');
   const move=e=>{
     const r=ch.getBoundingClientRect(),x=Math.max(0,Math.min(W,e.clientX-r.left));
     const i=Math.max(0,Math.min(n-1,Math.round(x/W*days*24))),px=X(t[i]);
-    hl.style.display=tip.style.display='block';hl.style.left=px+'px';
-    const dt=new Date(t[i]).toLocaleString('en-US',{weekday:'short',month:'numeric',day:'numeric',hour:'numeric',timeZone:'UTC'}).replace(',','');
-    tip.innerHTML='<b>'+dt+'</b>🌡️ '+Math.round(temps[i]*10)/10+U+'<br>💧 '+(pr[i]==null?'chance not forecast this far out':pr[i]+'% chance of rain')+(snow[i]>0?'<br>❄️ '+snow[i]+'% chance of snow':'');
-    const w=tip.offsetWidth,sx=ch.parentElement.parentElement.scrollLeft,vis=ch.parentElement.parentElement.clientWidth;
-    tip.style.left=(px+w+16>sx+vis?px-w-10:px+10)+'px';
+    hl.style.display='block';hl.style.left=px+'px';
+    const dObj=new Date(t[i]);
+    const tm=dObj.toLocaleTimeString('en-US',{hour:'numeric',timeZone:'UTC'}).replace(/\s+/g,'');
+    tipTime.textContent=tm;
+    tipTime.style.display='block';
+    tipTime.style.left=Math.max(25,Math.min(W-25,px))+'px';
+    const flip=px+52>W;
+    const badgeX=flip?(px-6):(px+6);
+    const badgeT=flip?'translate(-100%,-50%)':'translateY(-50%)';
+    tipTemp.textContent=Math.round(temps[i])+'°';
+    tipTemp.style.display='block';
+    tipTemp.style.left=badgeX+'px';
+    tipTemp.style.transform=badgeT;
+    tipTemp.style.top=Math.max(10,Math.min(TH-10,yT(temps[i])))+'px';
+    if(pr[i]==null){
+      tipPrecip.style.display='none';
+    }else{
+      const isSnow=(snow[i]||0)>0;
+      tipPrecip.textContent=Math.round(isSnow?snow[i]:pr[i])+'%';
+      tipPrecip.classList.toggle('snow',isSnow);
+      tipPrecip.style.display='block';
+      tipPrecip.style.left=badgeX+'px';
+      tipPrecip.style.transform=badgeT;
+      const r2Top=rows[1]?rows[1].offsetTop:(TH+30);
+      tipPrecip.style.top=(r2Top+Math.max(10,Math.min(PH-11,yP(pr[i]))))+'px';
+    }
   };
   const sc=ch.parentElement.parentElement;let drag=null;
-  const hide=()=>{hl.style.display=tip.style.display='none'};
+  const hide=()=>{hl.style.display=tipTime.style.display=tipTemp.style.display=tipPrecip.style.display='none'};
   ch.onpointermove=move;
   ch.onpointerleave=e=>{if(e.pointerType==='mouse'&&!drag)hide()};
   sc.onpointerdown=e=>{
@@ -239,7 +265,7 @@ $('#unit').onclick=e=>{const v=e.target.dataset.v;if(!v)return;state.unit=v;save
 $('#range').onclick=e=>{const v=e.target.dataset.v;if(!v)return;state.days=+v;save();syncSeg();if(state.cur)show(state.cur)};
 syncSeg();
 $('#refresh').onclick=()=>{if(state.cur)show(state.cur,true)};
-document.addEventListener('pointerdown',e=>{const c=$('#charts');if(c&&!c.contains(e.target)){$('#hl').style.display=$('#tip').style.display='none'}});
+document.addEventListener('pointerdown',e=>{const c=$('#charts');if(c&&!c.contains(e.target)){['#hl','#tip-time','#tip-temp','#tip-precip'].forEach(s=>{const el=$(s);if(el)el.style.display='none'})}});
 if(state.cur)show(state.cur);
 </script>
 </body>
