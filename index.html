@@ -83,7 +83,7 @@ button{font:inherit;cursor:pointer;border:0;border-radius:8px}
 </main>
 <script>
 const $=s=>document.querySelector(s);
-const DAYW=170,TH=200,PH=170,KEY='hourlywx.v1',HR=3600000;
+const DAYW=136,TH=200,PH=170,KEY='hourlywx.v1',HR=3600000;
 let state={recents:[],cur:null,unit:'F',days:7},W=0,DATA=null;
 try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&Array.isArray(s.recents))state=Object.assign(state,s)}catch(e){}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}};
