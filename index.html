@@ -75,7 +75,7 @@ button{font:inherit;cursor:pointer;border:0;border-radius:8px}
     <input id="q" placeholder="City or ZIP code, e.g. 78701 or Denver, CO" aria-label="City or ZIP code" autocomplete="off">
     <button class="go" type="submit">Show forecast</button>
   </form>
-  <div class="opts"><div class="seg" id="unit"><button type="button" data-v="F">°F</button><button type="button" data-v="C">°C</button></div><div class="seg" id="range"><button type="button" data-v="7">7 days</button><button type="button" data-v="16">16 days</button></div><div class="seg"><button type="button" id="refresh">Refresh</button></div></div>
+  <div class="opts"><div class="seg" id="unit"><button type="button" data-v="F">°F</button><button type="button" data-v="C">°C</button><button type="button" data-v="both" title="Both °F and °C">Both</button></div><div class="seg" id="range"><button type="button" data-v="7">7 days</button><button type="button" data-v="16">16 days</button></div><div class="seg"><button type="button" id="refresh">Refresh</button></div></div>
   <div class="recents" id="recents"></div>
   <div id="status" role="status"></div>
   <div id="out"><div class="card empty">Enter a city or ZIP code to see the 7-day hourly forecast.</div></div>
@@ -165,7 +165,7 @@ function render(l,d){
   W=days*DAYW;
   const t=h.time.map(s=>Date.parse(s+'Z')),t0=t[0],tot=days*24*HR;
   const X=ms=>(ms-t0)/tot*W;
-  const C=state.unit==='C',cv=v=>C?(v-32)*5/9:v,U=C?'°C':'°F';
+  const isBoth=state.unit==='both'||state.unit==='FC',C=state.unit==='C',toC=v=>(v-32)*5/9,cv=v=>C?toC(v):v,U=isBoth?'°F / °C':(C?'°C':'°F');
   const temps=h.temperature_2m.map(cv),pr=h.precipitation_probability;
   const snow=pr.map((v,i)=>v==null?null:((h.snowfall&&h.snowfall[i])>0?v:0));
   const hasSnow=snow.some(v=>v>0);
@@ -190,22 +190,27 @@ function render(l,d){
   const sub=(s,H)=>s.replace(/height="H"/g,'height="'+H+'"').replace(/y2="H"/g,'y2="'+H+'"');
   const svgT=sub('<svg width="'+W+'" height="H" viewBox="0 0 '+W+' H">'+night+grid(tick,yT)+seps+'<path d="'+lineD+'" fill="none" stroke="var(--temp)" stroke-width="2.2" stroke-linejoin="round"/></svg>',TH).replace('viewBox="0 0 '+W+' H"','viewBox="0 0 '+W+' '+TH+'"');
   const svgP=sub('<svg width="'+W+'" height="H" viewBox="0 0 '+W+' '+PH+'">'+night+grid(pt,yP)+seps+'<path d="'+area(pr)+'" fill="var(--fill)"/><path d="'+line(pr,yP)+'" fill="none" stroke="var(--rain)" stroke-width="2"/>'+(hasSnow?'<path d="'+area(snow)+'" fill="var(--snowfill)"/><path d="'+line(snow,yP)+'" fill="none" stroke="var(--snow)" stroke-width="2"/>':'')+'</svg>',PH);
-  const axis=(arr,f,suf)=>'<div class="axis">'+arr.map(v=>'<span style="top:'+f(v)+'px">'+v+suf+'</span>').join('')+'</div>';
+  const axis=(arr,f,suf,fmt)=>'<div class="axis">'+arr.map(v=>'<span style="top:'+f(v)+'px">'+(fmt?fmt(v):v+suf)+'</span>').join('')+'</div>';
   const dayEls=d.daily.time.map((day,i)=>{
     const dt=new Date(day+'T00:00:00Z').toLocaleDateString('en-US',{weekday:'short',month:'numeric',day:'numeric',timeZone:'UTC'}).replace(',','');
     const [em,lab]=wc(d.daily.weather_code[i]);
-    return '<div class="day" style="width:'+DAYW+'px"><b>'+dt+'</b><div class="t"><i>'+Math.round(cv(d.daily.temperature_2m_max[i]))+'°</i> | <u>'+Math.round(cv(d.daily.temperature_2m_min[i]))+U+'</u></div><div class="e" aria-hidden="true">'+em+'</div><div class="c">'+lab+'</div><div class="p"></div></div>';
+    const maxF=Math.round(d.daily.temperature_2m_max[i]),minF=Math.round(d.daily.temperature_2m_min[i]);
+    const maxC=Math.round(toC(d.daily.temperature_2m_max[i])),minC=Math.round(toC(d.daily.temperature_2m_min[i]));
+    const tHtml=isBoth
+      ?'<i>'+maxF+'°</i> | <u>'+minF+'°F</u><br><i>'+maxC+'°</i> | <u>'+minC+'°C</u>'
+      :'<i>'+Math.round(cv(d.daily.temperature_2m_max[i]))+'°</i> | <u>'+Math.round(cv(d.daily.temperature_2m_min[i]))+U+'</u>';
+    return '<div class="day" style="width:'+DAYW+'px"><b>'+dt+'</b><div class="t">'+tHtml+'</div><div class="e" aria-hidden="true">'+em+'</div><div class="c">'+lab+'</div><div class="p"></div></div>';
   }).join('');
   $('#out').innerHTML='<p class="loc"></p><div class="card"><div class="scroll"><div class="inner" style="width:'+W+'px">'+
     '<div class="days">'+dayEls+'</div>'+
-    '<div class="charts" id="charts"><div class="row">'+axis(tick,yT,'')+svgT+'</div>'+
+    '<div class="charts" id="charts"><div class="row">'+axis(tick,yT,'',isBoth?v=>v+'°F / '+Math.round(toC(v))+'°C':null)+svgT+'</div>'+
     '<div class="legend"><s></s>Temperature ('+U+')</div>'+
     '<div class="row">'+axis(pt,yP,'')+svgP+'</div>'+
     '<div class="legend"><s class="r"></s>Chance of precipitation (%)<s class="sn"></s>Chance of snow (%, estimated)'+note+'</div>'+
     '<div id="now"></div><div id="hl"></div><div id="tip-time"></div><div id="tip-temp"></div><div id="tip-precip"></div></div></div></div></div>';
   $('.loc').textContent=l.label;
   // fix precip text (zero → "0 in")
-  document.querySelectorAll('.day .p').forEach((el,i)=>{const v=d.daily.precipitation_sum[i]||0;el.textContent=(v===0?'0':C?(v*25.4).toFixed(1):v.toFixed(2))+(C?' mm':' in')});
+  document.querySelectorAll('.day .p').forEach((el,i)=>{const v=d.daily.precipitation_sum[i]||0;el.textContent=v===0?'0':isBoth?(v.toFixed(2)+' in / '+(v*25.4).toFixed(1)+' mm'):((C?(v*25.4).toFixed(1):v.toFixed(2))+(C?' mm':' in'))});
   const nowMs=Date.now()+(d.utc_offset_seconds||0)*1000;
   if(nowMs>=t0&&nowMs<=t0+tot)$('#now').style.left=X(nowMs)+'px';else $('#now').remove();
   const ch=$('#charts'),hl=$('#hl'),tipTime=$('#tip-time'),tipTemp=$('#tip-temp'),tipPrecip=$('#tip-precip');
@@ -219,10 +224,10 @@ function render(l,d){
     tipTime.textContent=tm;
     tipTime.style.display='block';
     tipTime.style.left=Math.max(25,Math.min(W-25,px))+'px';
-    const flip=px+52>W;
+    const flip=px+(isBoth?85:52)>W;
     const badgeX=flip?(px-6):(px+6);
     const badgeT=flip?'translate(-100%,-50%)':'translateY(-50%)';
-    tipTemp.textContent=Math.round(temps[i])+'°';
+    tipTemp.textContent=isBoth?(Math.round(h.temperature_2m[i])+'°F / '+Math.round(toC(h.temperature_2m[i]))+'°C'):(Math.round(temps[i])+'°');
     tipTemp.style.display='block';
     tipTemp.style.left=badgeX+'px';
     tipTemp.style.transform=badgeT;

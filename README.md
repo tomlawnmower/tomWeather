@@ -19,7 +19,7 @@ A zero-dependency, single-page hourly weather application built with vanilla HTM
   - Crosshair scrubber with hover/touch tooltip displaying exact hourly readings.
   - Horizontal drag-to-scroll navigation for both mouse and touch input.
 - **Controls & Theming**:
-  - Unit toggle (°F / °C) with dynamic conversion.
+  - Unit toggle (°F / °C / Both) with dynamic conversion.
   - Forecast range toggle (7 days / 16 days).
   - Manual data refresh button.
   - Automatic light/dark mode support based on system settings (`prefers-color-scheme`).
